@@ -1,18 +1,27 @@
+import os
 import pandas as pd
 import numpy as np
 import yfinance as yf
 import matplotlib.pyplot as plt
+import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report
+import warnings
 
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
+# Ensure model folder exists
+os.makedirs('model', exist_ok=True)
+
+# 1️⃣ Get stock symbol
 ticker = input("Enter stock symbol (e.g. AAPL, RELIANCE.NS): ").upper()
 df = yf.download(ticker, start="2018-01-01", end="2025-01-01")
 if df.empty:
     raise ValueError("Invalid ticker or no data found!")
 
+# 2️⃣ Feature creation
 df['SMA_10'] = df['Close'].rolling(10).mean()
 df['SMA_50'] = df['Close'].rolling(50).mean()
 delta = df['Close'].diff()
@@ -26,7 +35,7 @@ df['RSI'] = 100 - (100 / (1 + rs))
 df['Target'] = np.where(df['Close'].shift(-1) > df['Close'], 1, 0)
 df = df.dropna()
 
-
+# 3️⃣ Prepare data for training
 features = ['SMA_10', 'SMA_50', 'RSI']
 X = df[features]
 y = df['Target']
@@ -37,17 +46,21 @@ scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
-
+# 4️⃣ Train model
 model = RandomForestClassifier(n_estimators=100, random_state=42)
 model.fit(X_train_scaled, y_train)
 
+# 5️⃣ Save model
+joblib.dump(model, 'model/stock_predictor.pkl')
+print("💾 Model saved as stock_predictor.pkl")
 
+# 6️⃣ Evaluate model
 y_pred = model.predict(X_test_scaled)
 acc = accuracy_score(y_test, y_pred)
 print(f"\nModel accuracy: {acc:.2f}")
 print("\nClassification report:\n", classification_report(y_test, y_pred))
 
-
+# 7️⃣ Plot predictions (optional)
 df_test = df.iloc[len(X_train):].copy()
 df_test['Predicted'] = y_pred
 
